@@ -14,15 +14,16 @@ import (
 const (
 	startPrefix = "=== RUN "
 	passPrefix  = "--- PASS: "
-	failPrefix  = "--- FAIL: "
+	failPrefix  = "FAIL: "
 
-	version = "0.1.0"
+	version = "0.1.1"
 )
 
 // "end of test" regexp for name and time, examples:
 // --- PASS: TestSub (0.00 seconds)
 // --- FAIL: TestSubFail (0.00 seconds)
 var endRegexp *regexp.Regexp = regexp.MustCompile(`([^ ]+) \((\d+\.\d+)`)
+var failRegexp *regexp.Regexp = regexp.MustCompile(`([^ ]+) ([^ ]+)`)
 
 type Test struct {
 	Name, Time, Message string
@@ -40,24 +41,45 @@ func parseEnd(prefix, line string) (string, string, error) {
 	return matches[1], matches[2], nil
 }
 
+// parseFailEnd parses the "failure" line and returns (name, time, error)
+func parseFailEnd(prefix, line string) (string, string, error) {
+	matches := failRegexp.FindStringSubmatch(line[len(prefix):])
+
+	if len(matches) == 0 {
+		return "", "", fmt.Errorf("can't parse %s", line)
+	}
+
+	// TODO: Parse the time properly
+	return matches[2], "0.0", nil
+}
+
 // parseOutput parses output of "go test -v", returns a list of tests
 func parseOutput(rd io.Reader) ([]*Test, error) {
 	tests := []*Test{}
+	var test *Test = nil
+
+	nextTest := func() {
+		// We are switching to the next test, store the current one.
+		if test == nil {
+			return
+		}
+
+		tests = append(tests, test)
+		test = nil
+	}
 
 	reader := bufio.NewReader(rd)
-	var test *Test = nil
 	for {
 		buf, _, err := reader.ReadLine()
 
 		switch err {
 		case io.EOF:
-			if test != nil {
-				tests = append(tests, test)
-			}
+			nextTest()
 			return tests, nil
 		case nil:
+			// nil is OK
 
-		default:
+		default: // Error other than io.EOF
 			return nil, err
 		}
 
@@ -66,30 +88,22 @@ func parseOutput(rd io.Reader) ([]*Test, error) {
 		switch {
 		case strings.HasPrefix(line, startPrefix):
 		case strings.HasPrefix(line, failPrefix):
-			// We are switching to the next test, so store the
-			// current one.
-			if test != nil {
-				tests = append(tests, test)
-			}
+			nextTest()
 
 			// Extract the test name and the duration:
-			name, time, err := parseEnd(passPrefix, line)
+			name, time, err := parseFailEnd(failPrefix, line)
 			if err != nil {
 				return nil, err
 			}
 
 			test = &Test{
-				Name: name,
-				Time: time,
+				Name:   name,
+				Time:   time,
 				Failed: true,
 			}
 
 		case strings.HasPrefix(line, passPrefix):
-			// We are switching to the next test, so store the
-			// current one.
-			if test != nil {
-				tests = append(tests, test)
-			}
+			nextTest()
 			// Extract the test name and the duration:
 			name, time, err := parseEnd(passPrefix, line)
 			if err != nil {
@@ -98,18 +112,13 @@ func parseOutput(rd io.Reader) ([]*Test, error) {
 
 			// Create the test structure and store it.
 			tests = append(tests, &Test{
-				Name: name,
-				Time: time,
+				Name:   name,
+				Time:   time,
 				Failed: false,
 			})
 			test = nil
 		case line == "FAIL":
-			// Handle the edge case of the last test failing: the
-			// following line will be "FAIL", so we just stop there.
-			if test != nil {
-				tests = append(tests, test)
-			}
-			test = nil
+			nextTest()
 		default:
 			if test != nil { // test != nil marks we're in the middle of a test
 				test.Message += line + "\n"
@@ -117,7 +126,8 @@ func parseOutput(rd io.Reader) ([]*Test, error) {
 		}
 	}
 
-	return tests, nil
+	// If we're here, it's an error
+	return nil, fmt.Errorf("Error parsing")
 }
 
 // numFailures count how man tests failed
