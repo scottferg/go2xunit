@@ -46,12 +46,12 @@ func Test_parseOutput(t *testing.T) {
 	}
 
 	test := tests[0]
-	if test.Name != "TestAdd" {
+	if test.Name != "TestSuite.TestAdd" {
 		t.Fatalf("bad test name %s, expected TestAdd", test.Name)
 	}
 
-	if test.Time != "0.00" {
-		t.Fatalf("bad test time %s, expected 0.00", test.Time)
+	if test.Time != "0.000" {
+		t.Fatalf("bad test time %s, expected 0.000", test.Time)
 	}
 
 	if len(test.Message) != 0 {

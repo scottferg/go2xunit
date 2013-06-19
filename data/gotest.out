@@ -1,13 +1,16 @@
 === RUN TestAdd
---- PASS: TestAdd (0.00 seconds)
+PASS: test.go:267: TestSuite.TestAdd	0.000s
 === RUN TestSub
---- PASS: TestSub (0.00 seconds)
+PASS: test.go:267: TestSuite.TestSub	0.002s
 === RUN TestSubFail
---- FAIL: TestSubFail (0.00 seconds)
-	xunit_test.go:22: 3-1 != 3
-		Some newline goes here
+FAIL: test.go:1: TestSuite.TestSubFail
+
+test.go:1:
+    c.Assert(false, Equals, true)
+... obtained bool = false
+... expected bool = true
 === RUN TestSubOK
---- PASS: TestSubOK (0.00 seconds)
+PASS: test.go:267: TestSuite.TestSubOK	0.002s
 FAIL
 exit status 1
 FAIL	_/home/miki/Projects/goroot/src/xunit	0.004s
