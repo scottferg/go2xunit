@@ -20,10 +20,9 @@ const (
 )
 
 // "end of test" regexp for name and time, examples:
-// --- PASS: TestSub (0.00 seconds)
-// --- FAIL: TestSubFail (0.00 seconds)
-var endRegexp *regexp.Regexp = regexp.MustCompile(`([^ ]+) \((\d+\.\d+)`)
-var failRegexp *regexp.Regexp = regexp.MustCompile(`([^ ]+) ([^ ]+)`)
+// PASS: main_test.go:10: MySuite.TestSomething	   0.001s
+// FAIL: main_test.go:10: MySuite.TestSomething	   0.001s
+var endRegexp *regexp.Regexp = regexp.MustCompile(`([^ ]+\.[^ ]+:\d+): ([^ ]+\.[^ ]+)\t(\d+\.\d+)`)
 
 type Test struct {
 	Name, Time, Message string
@@ -32,14 +31,14 @@ type Test struct {
 
 // parseEnd parses the "failure" line and returns (name, time, error)
 func parseEnd(prefix, line string) (string, string, error) {
-	matches := failRegexp.FindStringSubmatch(line[len(prefix):])
+	matches := endRegexp.FindStringSubmatch(line[len(prefix):])
 
 	if len(matches) == 0 {
 		return "", "", fmt.Errorf("can't parse %s", line)
 	}
 
 	// TODO: Parse the time properly
-	return matches[2], "0.0", nil
+	return matches[2], matches[3], nil
 }
 
 // parseOutput parses output of "go test -v", returns a list of tests
