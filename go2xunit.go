@@ -22,7 +22,8 @@ const (
 // "end of test" regexp for name and time, examples:
 // PASS: main_test.go:10: MySuite.TestSomething	   0.001s
 // FAIL: main_test.go:10: MySuite.TestSomething	   0.001s
-var endRegexp *regexp.Regexp = regexp.MustCompile(`([^ ]+\.[^ ]+:\d+): ([^ ]+\.[^ ]+)\t(\d+\.\d+)`)
+var passRegexp *regexp.Regexp = regexp.MustCompile(`([^ ]+\.[^ ]+:\d+): ([^ ]+\.[^ ]+)\t(\d+\.\d+)`)
+var failRegexp *regexp.Regexp = regexp.MustCompile(`([^ ]+\.[^ ]+:\d+): ([^ ]+\.[^ ]+)`)
 
 type Test struct {
 	Name, Time, Message string
@@ -30,15 +31,19 @@ type Test struct {
 }
 
 // parseEnd parses the "failure" line and returns (name, time, error)
-func parseEnd(prefix, line string) (string, string, error) {
-	matches := endRegexp.FindStringSubmatch(line[len(prefix):])
+func parseEnd(prefix, line string, re *regexp.Regexp) (string, string, error) {
+	matches := re.FindStringSubmatch(line[len(prefix):])
 
 	if len(matches) == 0 {
 		return "", "", fmt.Errorf("can't parse %s", line)
 	}
 
-	// TODO: Parse the time properly
-	return matches[2], matches[3], nil
+	if len(matches) > 3 {
+		return matches[2], matches[3], nil
+	}
+
+    // Failures don't report time
+	return matches[2], "0.000", nil
 }
 
 // parseOutput parses output of "go test -v", returns a list of tests
@@ -79,7 +84,7 @@ func parseOutput(rd io.Reader) ([]*Test, error) {
 			nextTest()
 
 			// Extract the test name and the duration:
-			name, time, err := parseEnd(failPrefix, line)
+			name, time, err := parseEnd(failPrefix, line, failRegexp)
 			if err != nil {
 				return nil, err
 			}
@@ -93,7 +98,7 @@ func parseOutput(rd io.Reader) ([]*Test, error) {
 		case strings.HasPrefix(line, passPrefix):
 			nextTest()
 			// Extract the test name and the duration:
-			name, time, err := parseEnd(passPrefix, line)
+			name, time, err := parseEnd(passPrefix, line, passRegexp)
 			if err != nil {
 				return nil, err
 			}
