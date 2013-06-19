@@ -13,7 +13,7 @@ import (
 
 const (
 	startPrefix = "=== RUN "
-	passPrefix  = "--- PASS: "
+	passPrefix  = "PASS: "
 	failPrefix  = "FAIL: "
 
 	version = "0.1.1"
@@ -30,19 +30,8 @@ type Test struct {
 	Failed              bool
 }
 
-// parseEnd parses "end of test" line and returns (name, time, error)
+// parseEnd parses the "failure" line and returns (name, time, error)
 func parseEnd(prefix, line string) (string, string, error) {
-	matches := endRegexp.FindStringSubmatch(line[len(prefix):])
-
-	if len(matches) == 0 {
-		return "", "", fmt.Errorf("can't parse %s", line)
-	}
-
-	return matches[1], matches[2], nil
-}
-
-// parseFailEnd parses the "failure" line and returns (name, time, error)
-func parseFailEnd(prefix, line string) (string, string, error) {
 	matches := failRegexp.FindStringSubmatch(line[len(prefix):])
 
 	if len(matches) == 0 {
@@ -91,7 +80,7 @@ func parseOutput(rd io.Reader) ([]*Test, error) {
 			nextTest()
 
 			// Extract the test name and the duration:
-			name, time, err := parseFailEnd(failPrefix, line)
+			name, time, err := parseEnd(failPrefix, line)
 			if err != nil {
 				return nil, err
 			}
